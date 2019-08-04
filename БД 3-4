@@ -12,11 +12,12 @@ from	 users;
 -- 3.3
 
 select	id
-		, value
+	, value
         , case
-			when value <> 0 then value
-            else 1000000
-		end as for_order -- это поле можно отсюда удалить если не нужно выводить
+		when value <> 0 then value
+            	else 1000000
+	end as for_order -- это поле можно отсюда удалить если не нужно выводить
+	
 from 	storehouses_products
 order by case when value <> 0 then value else 1000000 end
 
@@ -30,9 +31,9 @@ select	*
 from	catalogs
 where id in (5, 1, 2)
 order by case 
-			when id = 5 then 1
-            when id = 1 then 2
-            when id = 2 then 3
+		when id = 5 then 1
+            	when id = 1 then 2
+           	when id = 2 then 3
 		end 
         
 -- 4.1
