@@ -1,0 +1,47 @@
+-- 3.1
+select	id
+		,name
+        ,birthday_at
+        ,now() as created_at
+        , now as updated_at
+from	 users;
+
+-- 3.2 затупил, выдает ошибку при функциях convert и попытке alter table *** change ***
+-- . мол невозможно поменять формат
+
+-- 3.3
+
+select	id
+		, value
+        , case
+			when value <> 0 then value
+            else 1000000
+		end as for_order -- это поле можно отсюда удалить если не нужно выводить
+from 	storehouses_products
+order by case when value <> 0 then value else 1000000 end
+
+-- 3.4
+select	*
+from 	users
+where	month in ('may', 'august')
+
+-- 3.5
+select	*
+from	catalogs
+where id in (5, 1, 2)
+order by case 
+			when id = 5 then 1
+            when id = 1 then 2
+            when id = 2 then 3
+		end 
+        
+-- 4.1
+
+select	avg(timestampdiff(year, birthday_at, now())) as avg_age
+from	users
+
+-- 4.2
+select	weekday(birthday_at) as weekday_birth
+		,count(*) as cnt
+from	users
+group by 1
