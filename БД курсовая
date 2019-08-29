@@ -1,0 +1,158 @@
+Не успел доделать БД, последние 2 недели на собеседованиях + работа...
+Сделал только саму БД, без данных и запросов. Высылаю так, ибо сейчас начнется новый курс, боюсь что иначе все это засноуболится.
+
+Описание:
+БД рассчитана для сетевого алкомаркета. Для таких проектов, как мне кажется, 
+необходима в первую очередь информация по чекам (по их количеству и содержанию, orders и order_details),
+информация по нашим чекам (заказы у поставщиков, shop_orders и shop_order_details),
+информация по ценам в разные моменты заказов (для подсчетов себестоимостей и наценок в разные моменты времени),
+информация по магазинам и информация по сотрудникам.
+
+Таким образом из БД можно выгрузить валовую прибыль каждого магазина (и мотивировать директоров магазина), 
+посмотреть какую долю занимает тот или иной поставщик (чтобы потом обсуждать условия, например),
+можно посмотреть оборот проходящий через каждого сотрудника (и мотивировать их, в разных разрезах, делать усиленные мотивации на ключевые группы продуктов),
+можно посмотреть средний чек, динамику изменения закупочных цен по по поставщикам, по группам продуктов,
+динамику изменения отпускных цен, изменение спроса на разные группы товаров.
+Можно сделать вывод о том, какая группа продуктов популярнее летом\осенью.
+
+--------------------------------------------------------------
+
+
+DROP TABLE IF EXISTS shops;
+create table shops (
+id SERIAL PRIMARY KEY 		comment 'id магазина',
+city VARCHAR(255) 			comment 'город магазина',
+adress VARCHAR(255) 		comment 'адрес магазина',
+license_id  BIGINT UNSIGNED 	comment 'id алкогольной лицензии',
+foreign key (license_id) references licenses(id) on update cascade on delete restrict
+) comment 'таблица с магазинами';
+
+DROP TABLE IF EXISTS licenses;  -- Здесь лицензии и магазинов, и поставщиков
+create table licenses (
+id SERIAL PRIMARY KEY 		comment 'id лицензии',
+serial_number VARCHAR(255) 	comment 'гос номер лицензии',
+kind_flg INT UNSIGNED 		comment '0 если наш магазин, 1 если поставщик', 
+valid_from_dttm DATETIME 	comment 'действует с',
+valid_to_dttm DATETIME 		comment 'действует до'
+) comment 'таблица с лицензиями';
+
+
+DROP TABLE IF EXISTS orders;
+create table orders (
+id SERIAL PRIMARY KEY 							comment 'id чека',
+shop_id BIGINT UNSIGNED 							comment 'id магазина',
+money INT UNSIGNED 								comment 'общая сумма чека',
+create_dttm DATETIME DEFAULT CURRENT_TIMESTAMP 	comment 'Дата-время проведения операции',
+employee_id BIGINT UNSIGNED 						comment  'id продавца',
+customer_id BIGINT UNSIGNED 						comment 'id клиента, если была проведена карточка',
+foreign key (shop_id) references shops(id) on update cascade on delete restrict,
+foreign key (employee_id) references employees(id) on update cascade on delete restrict,
+foreign key (customer_id) references customers(id) on update cascade on delete restrict
+) comment 'Общие данные по чекам';
+
+
+DROP TABLE IF EXISTS order_details;
+create table order_details (
+id SERIAL PRIMARY KEY 			comment 'Уникальный ключ',
+order_id BIGINT UNSIGNED 			comment 'id чека',
+product_id  BIGINT UNSIGNED 		comment 'id товара',
+product_change_id BIGINT UNSIGNED	comment 'id валидности товара',
+amount INT UNSIGNED 			comment 'Кол-во единиц товара',
+price_fixed INT UNSIGNED 		comment  'Фактическая стоимость товара на момент продажи (стоимость без учета скидок и тд можно вытащить из product_changes',
+discount_amt INT UNSIGNED 		comment  'размер скидки в рублях',
+discount_type INT UNSIGNED 		comment 'тип скидки. Принимает значение id склиента если скидка по карте и принимает "0" если это акция магазина',
+foreign key (order_id) references orders(id) on update cascade on delete restrict,
+foreign key (product_change_id) references product_changes(id) on update cascade on delete restrict
+) comment 'Подробная информация о чеке' ;
+
+
+
+
+
+DROP TABLE IF EXISTS employees;
+create table employees (
+id SERIAL PRIMARY KEY 			comment 'id сотрудника',
+first_name VARCHAR(255) 		comment 'имя',
+second_name VARCHAR(255) 		comment 'фамилия',
+third_name VARCHAR(255) 		comment 'отчество',
+mobile_number VARCHAR(255)		comment 'мобильный номер',
+birth_dt DATE 					comment 'дата рождения',
+hired_dt DATE 					comment 'дата найма',
+fired_dt DATE 					comment 'дата увольнения (для старых сотрудников)',
+position VARCHAR(255) 			comment 'должность',
+salary VARCHAR(255) 			comment 'должностной оклад'
+) comment 'таблица с сотрудниками';
+
+DROP TABLE IF EXISTS products;
+create table products (
+id SERIAL PRIMARY KEY 			comment 'id продукта',
+category VARCHAR(255) 			comment 'категория продукта (вино, виски и т.д.)',
+provider_id BIGINT UNSIGNED 		comment 'id поставщика',
+product_name VARCHAR(255) 		comment 'наименование продукта',
+foreign key (provider_id) references providers(id) on update cascade on delete restrict
+) comment 'таблица с продуктами';
+
+DROP TABLE IF EXISTS product_changes;
+create table product_changes (
+id SERIAL PRIMARY KEY 		comment 'id записи',
+product_id BIGINT UNSIGNED		comment 'id продукта',
+buy_price INT UNSIGNED 		comment 'Цена покупки товара',
+sell_price INT UNSIGNED 	comment 'Цена продажи товара',
+valid_from_dttm DATETIME 	comment 'действует с',
+valid_to_dttm DATETIME 		comment 'действует по',
+foreign key (product_id) references products(id) on update cascade on delete restrict
+) comment 'таблица с изменениями в продукте (логируется новая строка при изменении в любой из колонок)';
+
+DROP TABLE IF EXISTS providers;
+create table providers (
+id SERIAL PRIMARY KEY 		comment 'id поставщика',
+license_id BIGINT UNSIGNED 	comment 'id лицензии',
+no_pay_period INT UNSIGNED	comment 'отсрочка по платежам (в днях)',
+sum_of_no_pay INT UNSIGNED	comment 'максимально возможная сумма по отсрочке',
+foreign key (license_id) references licenses(id) on update cascade on delete restrict
+) comment 'информация по контрагентам';
+
+DROP TABLE IF EXISTS shop_orders;
+create table shop_orders (
+id SERIAL PRIMARY KEY 							comment 'id заказа',
+shop_id BIGINT UNSIGNED							comment 'id магазина',
+provider_id BIGINT UNSIGNED						comment 'id поставщика',
+money INT UNSIGNED								comment 'общая сумма по заказу',
+create_dttm DATETIME DEFAULT CURRENT_TIMESTAMP 	comment 'Дата-время приемки заказа',
+employee_id BIGINT UNSIGNED 						comment 'id сотрудника принявшего заказ',
+foreign key (shop_id) references shops(id) on update cascade on delete restrict,
+foreign key (employee_id) references employees(id) on update cascade on delete restrict
+) comment 'заказы магазинов';
+
+DROP TABLE IF EXISTS shop_order_details;
+create table shop_order_details (
+id SERIAL PRIMARY KEY			comment 'id записи',
+shop_order_id BIGINT UNSIGNED		comment 'id чека',
+product_change_id BIGINT UNSIGNED	comment 'id валидности товара',
+foreign key (shop_order_id) references shop_orders(id) on update cascade on delete restrict,
+foreign key (product_change_id) references product_changes(id) on update cascade on delete restrict
+)	comment 'детали заказа';
+
+DROP TABLE IF EXISTS customers;
+create table customers (
+id SERIAL PRIMARY KEY			comment 'id клиента',
+first_name VARCHAR(255) 		comment 'имя',
+second_name VARCHAR(255) 		comment 'фамилия',
+third_name VARCHAR(255) 		comment 'отчество',
+mobile_number VARCHAR(255)		comment 'мобильный номер',
+birth_dt DATE 					comment 'дата рождения',
+create_dt DATE 					comment 'дата создания',
+email	VARCHAR(255)			comment 'эл. почта',
+money_amt INT UNSIGNED			comment 'общая сумма, прошедшая через карточку'
+);
+
+
+
+
+
+
+
+
+
+
+
